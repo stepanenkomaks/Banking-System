@@ -1,0 +1,358 @@
+package banking;
+
+import org.sqlite.SQLiteDataSource;
+
+import java.sql.*;
+import java.util.Random;
+import java.util.Scanner;
+import java.util.Arrays;
+
+class Cards {
+    String name;
+    String pin;
+    int balance;
+
+    Cards (String name, String pin, int balance) {
+        this.name = name;
+        this.pin = pin;
+        this.balance = balance;
+    }
+    Cards () {
+        this.name = "NULL";
+        this.pin = "NULL";
+        this.balance = 0;
+    }
+}
+
+class DataBase {
+    SQLiteDataSource dataSource = new SQLiteDataSource();
+    static String url = "";
+
+    DataBase(String url) {
+        this.url = url;
+        dataSource.setUrl(url);
+    }
+
+    DataBase() {
+        dataSource.setUrl(url);
+    }
+
+    void createTable() {
+        try (Connection con = dataSource.getConnection()) {
+            try (Statement statement = con.createStatement()) {
+                statement.executeUpdate("CREATE TABLE IF NOT EXISTS card(" +
+                        "id INTEGER," +
+                        "number TEXT NOT NULL," +
+                        "pin TEXT NOT NULL," +
+                        "balance INTEGER DEFAULT 0)");
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    void addToTable(int id, String name, String pin, int balance) {
+        try (Connection con = dataSource.getConnection()) {
+            try (Statement statement = con.createStatement()) {
+                statement.executeUpdate("INSERT INTO card VALUES " +
+                        "(" + id + ", '" + name + "', '" + pin + "', " + balance + ")");
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    void deleteFromTable(String name) {
+        try (Connection con = dataSource.getConnection()) {
+            try (Statement statement = con.createStatement()) {
+                statement.executeUpdate("DELETE FROM card " +
+                        "WHERE number = " + name);
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    Cards returnTable(String yourNumber, String yourPin) {
+        Cards card = new Cards();
+        try (Connection con = dataSource.getConnection()) {
+            try (Statement statement = con.createStatement()) {
+                try (ResultSet cards = statement.executeQuery("SELECT * FROM card")) {
+                    while (cards.next()) {
+                        int id = cards.getInt("id");
+                        String name = cards.getString("number");
+                        String pin = cards.getString("pin");
+                        int balance = cards.getInt("balance");
+                        if (yourNumber.equals(name) && yourPin.equals(pin)) {
+                            card.name = name;
+                            card.pin = pin;
+                            card.balance = balance;
+                            break;
+                        }
+                    }
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return card;
+    }
+
+    Cards cardCheck(String nameCheck) {
+        Cards card = new Cards();
+        try (Connection con = dataSource.getConnection()) {
+            try (Statement statement = con.createStatement()) {
+                try (ResultSet cards = statement.executeQuery("SELECT * FROM card")) {
+                    while (cards.next()) {
+                        int id = cards.getInt("id");
+                        String name = cards.getString("number");
+                        String pin = cards.getString("pin");
+                        int balance = cards.getInt("balance");
+                        if (nameCheck.equals(name)) {
+                            card.name = name;
+                            card.pin = pin;
+                            card.balance = balance;
+                            break;
+                        }
+                    }
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return card;
+    }
+
+    void updateTable(Cards card) {
+        try (Connection con = dataSource.getConnection()) {
+            try (Statement statement = con.createStatement()) {
+                PreparedStatement ps = con.prepareStatement("UPDATE card " +
+                        "SET balance = ?" +
+                        "WHERE number = ?");
+                ps.setInt(1, card.balance);
+                ps.setString(2, card.name);
+                ps.executeUpdate();
+
+                /*statement.executeUpdate("UPDATE card " +
+                        "SET balance = " + card.balance +
+                        "WHERE number = " + card.name);*/
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        String url = "jdbc:sqlite:" + args[1];
+        DataBase dataBase = new DataBase(url);
+        dataBase.createTable();
+        Scanner scanner = new Scanner(System.in);
+        menu(scanner);
+        scanner.close();
+    }
+
+    public static void createCard(int kol) {
+        DataBase dataBase = new DataBase();
+        boolean check = true;
+        Cards card = new Cards();
+        while (check) {
+            Random rnd = new Random();
+            int a = rnd.nextInt(10);
+            int b = rnd.nextInt(10);
+            int c = rnd.nextInt(10);
+            int d = rnd.nextInt(10);
+            String userPin = "" + a + b + c + d;
+            card = new Cards(luna(), userPin, 0);
+            Cards cardCheck = dataBase.returnTable(card.name, card.pin);
+            if (cardCheck.name.equals("NULL")) {
+                check = false;
+            }
+        }
+        System.out.println("\nYour card has been created\n" +
+                "Your card number:");
+        System.out.println(card.name);
+        System.out.println("Your card PIN:");
+        System.out.println(card.pin);
+        System.out.println();
+        dataBase.addToTable(kol, card.name, card.pin, card.balance);
+    }
+
+    public static String luna() {
+        Random rnd = new Random();
+        int[] arrNumbers = new int[16];
+        String cardNumber = "";
+        for (int i = 0; i < arrNumbers.length - 1; i++) {
+            if (i == 0) {
+                arrNumbers[i] = 4;
+            } else if (i < 6) {
+                arrNumbers[i] = 0;
+            } else {
+                arrNumbers[i] = rnd.nextInt(10);
+            }
+            cardNumber += arrNumbers[i];
+        }
+
+        for (int i = 0; i < arrNumbers.length - 1; i++) {
+            if (i % 2 == 0) {
+                arrNumbers[i] *= 2;
+            }
+            if (arrNumbers[i] > 9) {
+                arrNumbers[i] -= 9;
+            }
+        }
+
+        int sum = Arrays.stream(arrNumbers).sum();
+        arrNumbers[15] = (10 - (sum % 10)) % 10;
+        cardNumber += arrNumbers[15];
+        return cardNumber;
+    }
+
+    public static boolean checkLuna(String name) {
+        int sum = 0;
+        char[] strToArray = name.toCharArray();
+
+        if (strToArray.length < 16) {
+            return false;
+        }
+
+        for (int i = 0; i < 16; i++) {
+            int num = strToArray[i] - '0';
+            if (i % 2 == 0) {
+                sum += num * 2 > 9 ? num * 2 - 9 : num * 2;
+            } else {
+                sum += num;
+            }
+        }
+
+        return sum % 10 == 0;
+    }
+
+    public static boolean logIntoAccount(Scanner scanner, int kol) {
+        boolean check = true;
+        System.out.println("\nEnter your card number:");
+        String yourNumber = scanner.nextLine();
+        System.out.println("Enter your card PIN:");
+        String yourPin = scanner.nextLine();
+        DataBase dataBase = new DataBase();
+        Cards card = dataBase.returnTable(yourNumber, yourPin);
+        if (!card.name.equals("NULL")) {
+            System.out.println("\nYou have successfully logged in!\n");
+            check = menuOfYourCard(card, scanner);
+        } else {
+            System.out.println("\nWrong card number or PIN!\n");
+            menu(scanner);
+        }
+        return check;
+    }
+
+    public static void menu(Scanner scanner) {
+        boolean check = true;
+        int kol = 0;
+        while (check) {
+            System.out.println("1. Create an account\n" +
+                    "2. Log into account\n" +
+                    "0. Exit");
+            int choice = scanner.nextInt();
+            scanner.nextLine();
+            switch (choice) {
+                case 1:
+                    createCard(kol);
+                    kol++;
+                    break;
+                case 2:
+                    check = logIntoAccount(scanner, kol);
+                    break;
+                case 0:
+                    check = false;
+                    break;
+                default:
+                    System.out.println("Something went wrong! Try again\n");
+            }
+        }
+        System.out.println("\nBye!");
+        System.exit(0);
+    }
+
+    public static boolean menuOfYourCard(Cards card, Scanner scanner) {
+        boolean process = true;
+        DataBase dataBase = new DataBase();
+        while (process) {
+            System.out.println("\n1. Balance\n" +
+                    "2. Add income\n" +
+                    "3. Do transfer\n" +
+                    "4. Close account\n" +
+                    "5. Log out\n" +
+                    "0. Exit\n");
+            int choice = scanner.nextInt();
+            scanner.nextLine();
+            switch (choice) {
+                case 1:
+                    System.out.println("Balance: " + card.balance + "\n");
+                    break;
+                case 2:
+                    System.out.println("\nEnter income:");
+                    card.balance += scanner.nextInt();
+                    scanner.nextLine();
+                    dataBase.updateTable(card);
+                    System.out.println("Income was added!");
+                    break;
+                case 3:
+                    System.out.println("\nTransfer");
+                    System.out.println("Enter card number:");
+                    String cardNumber = scanner.nextLine();
+                    if (!checkLuna(cardNumber)) {
+                        System.out.println("Probably you made a mistake in the " +
+                                "card number. " +
+                                "Please try again!");
+                    }
+                    if (cardNumber.equals(card.name)) {
+                        System.out.println("You can't transfer money to the " +
+                                "same account!");
+                    }
+                    Cards transferCard = dataBase.cardCheck(cardNumber);
+                    if (!transferCard.name.equals("NULL")) {
+                        System.out.println("Enter how much money you want to transfer:");
+                        int transferMoney = scanner.nextInt();
+                        if (card.balance < transferMoney) {
+                            System.out.println("Not enough money!");
+                        } else {
+                            card.balance -= transferMoney;
+                            transferCard.balance += transferMoney;
+                            dataBase.updateTable(card);
+                            dataBase.updateTable(transferCard);
+                            System.out.println("Success!");
+                        }
+                    } else {
+                        System.out.println("\nSuch a card does not exist.\n");
+                    }
+                    break;
+                case 4:
+                    dataBase.deleteFromTable(card.name);
+                    break;
+                case 5:
+                    System.out.println("You have successfully logged out!\n");
+                    process = false;
+                    break;
+                case 0:
+                    return false;
+                default:
+                    System.out.println("Something went wrong! Try again\n");
+            }
+        }
+        return true;
+    }
+}
